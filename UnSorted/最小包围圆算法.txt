@@ -1,0 +1,308 @@
+最小包围圆问题指的是对于一个点数为n的点集，求一个圆形包围这些点，并且使得这个圆形的半径最小。
+这个问题存在很多解法。如果采用暴力求解，是 O(n^3)的时间，对于点数过多，这个算法太耗时。实际上存在O(n)时间的解法。下面的解法便是一种：
+
+1. 在点集中任取3点A,B,C。
+2. 作一个包含A,B,C三点的最小圆,圆周可能通过这3点，也可能只通过
+其中两点,但包含第3点.后一种情况圆周上的两点一定是位于圆的一条直
+径的两端。
+3. 在点集中找出距离第2步所建圆圆心最远的D点，若D点已在圆内或圆周上，
+则该圆即为所求的圆，算法结束.则，执行第4步。
+4. 在A,B,C,D中选3个点,使由它们生成的一个包含这4个点的圆为最小，这3
+点成为新的A,B,C，返回执行第2步。若在第4步生成的圆的圆周只通过A,B,C,D
+中的两点，则圆周上的两点取成新的A和B,从另两点中任取一点作为新的C。
+
+
+#include "StdAfx.h"
+#include <algorithm>
+#define  eps 1e-8
+#define  INF 1e308
+struct Triangle
+{
+ AcGePoint3d P;
+ double L;
+};
+bool comp (const Triangle &,const Triangle &);
+bool in_circle(const AcGePoint3d &,const AcGePoint3d &,double);
+bool all_in_circle(AcGePoint3d *,int n,const AcGePoint3d &,double);
+void Get3pCircle(const AcGePoint3d &,const AcGePoint3d &,const AcGePoint3d &,AcGePoint3d &,double &,AcGePoint3d *);
+void Get4pCircle(AcGePoint3d * pts,AcGePoint3d & cen,double & minR,AcGePoint3d *  p3ps);
+void GetFarthestPoint(AcGePoint3d *,int n,const AcGePoint3d &,AcGePoint3d &);
+void MinDesc(AcGePoint3d *,int n,AcGePoint3d &,double &,AcGePoint3d *);
+Acad::ErrorStatus CreatCircle(AcGePoint3d cen,double rad);
+
+//Function : sort a triangle by its length
+bool comp (const Triangle & s1,const Triangle & s2)
+{
+ return (s1.L >= s2.L);
+}
+//Function : to check a point is in a Circle or not.
+bool in_circle(const AcGePoint3d & pt,const AcGePoint3d & cen,double R)
+{
+ return (pt.distanceTo(cen) <= (R+eps));
+}
+//Function : to check all the points are in  the circle.
+bool all_in_circle(AcGePoint3d * pts ,int n ,const AcGePoint3d & cen,double R)
+{
+ for (int i = 0;i< n;i++)
+ {
+  if (!in_circle(pts[i],cen,R))
+  {
+   return false;
+  }
+ }
+ return true;
+}
+//Function : to Get the Fatherest point from the center of a circle
+void GetFarthestPoint(AcGePoint3d * pts,int n, const AcGePoint3d & cen,AcGePoint3d & pmax)
+{
+ double d,dmax=0.0;
+ for (int i = 0;i< n;i++)
+ {
+        d=cen.distanceTo(pts[i]);
+  if (d>dmax)
+  {
+   dmax = d;
+   pmax = pts[i];
+  }
+ }
+}
+//Function : to Get the circle of 3 points.the circle encasing 3 points is not always the same as the circle of these 3 points.
+void Get3pCircle(const AcGePoint3d & p0,const AcGePoint3d & p1,const AcGePoint3d & p2,AcGePoint3d & cen,double & rad ,AcGePoint3d * p3ps)
+{
+ Triangle tri[3];
+    tri[0].P = p0;
+    tri[1].P = p1;
+ tri[2].P = p2;
+ tri[0].L = p1.distanceTo(p2);
+ tri[1].L = p2.distanceTo(p0);
+ tri[2].L = p0.distanceTo(p1);
+ std::sort(tri,tri+3,comp); //to find the longest side
+ double la = tri[0].L;  //la is the longest side
+ double lb = tri[1].L;
+ double lc = tri[2].L;  //lb is the shortest side
+ AcGePoint3d pa = tri[0].P;
+ AcGePoint3d pb = tri[1].P;  
+ AcGePoint3d pc = tri[2].P;
+ p3ps[0] = pb;
+ p3ps[1] = pc;
+ p3ps[2] = pa;
+    if (la*la>=lb*lb+lc*lc)  //if one angle is greater than  90 degree
+    {
+  rad = la * 0.5;
+  cen = (pb + pc.asVector()) * 0.5;
+  return;
+    }
+ AcGeCircArc3d *pCir= new AcGeCircArc3d(p0,p1,p2);
+ cen = pCir->center();
+ rad = pCir->radius();
+ delete pCir;
+ pCir = NULL;
+ return;
+}
+//Function : to find the minimum circle  encasing 4 points. 
+void Get4pCircle(AcGePoint3d * pts,AcGePoint3d & minC,double & minR,AcGePoint3d * p3ps)
+{
+ minR = INF;
+ double R[3];
+ AcGePoint3d C[3],ppp[3];
+ for (int i = 0;i<3;i++)
+ {
+  Get3pCircle(pts[i],pts[(i+1)%3],pts[3],C[i],R[i],ppp);
+  if (all_in_circle(pts,4,C[i],R[i]) && R[i] < minR)
+  {
+   minR = R[i];
+   minC = C[i];
+   p3ps[0] = ppp[0];
+   p3ps[1] = ppp[1];
+   p3ps[2] = ppp[2];
+  }
+ } 
+}
+//to find the minimum circle encasing a set of points
+void MinDesc(AcGePoint3d * pts,int n,AcGePoint3d & cen ,double & rad,AcGePoint3d * tri)
+{
+ if (n == 0)
+ {
+  acutPrintf(_T("\nNo point,no answer."));
+  return;
+ }
+ if (n == 1)
+ {
+  cen = pts[0];
+  rad = 0;
+  return;
+ }
+ if (n == 2)
+ {
+  cen = (pts[0]+pts[1].asVector())*0.5;
+        rad = cen.distanceTo(pts[0]);
+  return;
+ }
+ // if the number of points is more than  3
+    AcGePoint3d p1,p2,p3,ptmax;
+    AcGePoint3d *pts3 = new AcGePoint3d[3];
+ AcGePoint3d *pts4 = new AcGePoint3d[4];
+ p1 = pts[0];
+ p2 = pts[1];
+ p3 = pts[2];
+ 
+ Get3pCircle(p1,p2,p3,cen,rad,pts3);
+ GetFarthestPoint(pts,n,cen,ptmax);
+    
+ int i = 0;
+ while(!in_circle(ptmax,cen,rad))
+ { 
+  pts4[0]=p1;
+  pts4[1]=p2;
+  pts4[2]=p3;
+  pts4[3]=ptmax;
+  Get4pCircle(pts4,cen,rad,pts3);
+  p1 = pts3[0];
+  p2 = pts3[1];
+  p3 = pts3[2];
+  GetFarthestPoint(pts,n,cen,ptmax);
+  i++;
+ }
+    acutPrintf(_T("\n共迭代了%d次."),i);
+ tri[0] = pts3[0];
+ tri[1] = pts3[1];
+ tri[2] = pts3[2];
+ delete []pts3;
+ delete []pts4;
+}
+//创建圆
+Acad::ErrorStatus CreatCircle(AcGePoint3d cen,double rad)
+{
+ AcDbDatabase *pDb = acdbHostApplicationServices()->workingDatabase();
+ AcDbBlockTableRecord *pRec= NULL;
+ Acad::ErrorStatus es = acdbOpenObject(pRec,pDb->currentSpaceId(),AcDb::kForWrite);
+ if (es!= Acad::eOk)
+ {
+  return es;
+ }
+ AcDbCircle *pCir = new AcDbCircle(cen,AcGeVector3d(0,0,1),rad);
+ es = pRec->appendAcDbEntity(pCir);
+ if (es!=Acad::eOk)
+ {
+  delete pCir;
+  pCir = NULL;
+  pRec->close();
+  return es;
+ }
+ es = pCir->close();
+ es = pRec->close();
+ return es;
+}
+
+
+//-----------------------------------------------------------------------------
+//----- acrxEntryPoint.h
+//-----------------------------------------------------------------------------
+#include "StdAfx.h"
+#include "resource.h"
+
+#include "MinC.h"
+
+//-----------------------------------------------------------------------------
+#define szRDS _RXST("")
+
+//-----------------------------------------------------------------------------
+
+//----- ObjectARX EntryPoint
+class CMinDescApp : public AcRxArxApp {
+
+public:
+        CMinDescApp () : AcRxArxApp () {}
+
+        virtual AcRx::AppRetCode On_kInitAppMsg (void *pkt) {
+                // TODO: Load dependencies here
+
+                // You *must* call On_kInitAppMsg here
+                AcRx::AppRetCode retCode =AcRxArxApp::On_kInitAppMsg (pkt) ;
+                
+                // TODO: Add your initialization code here
+                acutPrintf(_T("\n命令是:Minc."));
+
+                return (retCode) ;
+        }
+
+        virtual AcRx::AppRetCode On_kUnloadAppMsg (void *pkt) {
+                // TODO: Add your code here
+
+                // You *must* call On_kUnloadAppMsg here
+                AcRx::AppRetCode retCode =AcRxArxApp::On_kUnloadAppMsg (pkt) ;
+
+                // TODO: Unload dependencies here
+
+                return (retCode) ;
+        }
+
+        virtual void RegisterServerComponents () {
+        }
+
+
+        // - MinDesc._MinC command (do not rename)
+        static void MinDesc_MinC(void)
+        {
+                // Add your code for command MinDesc._MinC here
+                // 选择点集
+                ads_name sel;
+                resbuf filter;
+                filter.restype=0;
+                filter.resval.rstring=_T("POINT");
+                filter.rbnext = NULL; 
+                int ret=acedSSGet(NULL,NULL,NULL,&filter,sel);
+                if( ret!=RTNORM)
+                {
+                        acedSSFree(sel);
+                        return;
+                }
+                // 判断点集个数
+                long number;
+                acedSSLength(sel,&number);
+                if(number < 1)
+                {
+                        acutPrintf(_T("\nThe number of Points is too small,Please reselect!"));
+                        acedSSFree(sel);
+                        return;
+                }
+
+                __int64 freq, start, end, diff;
+                QueryPerformanceFrequency((LARGE_INTEGER*)&freq); 
+                QueryPerformanceCounter((LARGE_INTEGER*)&start);
+
+                ads_name ent;
+                AcGePoint3d pt;                
+                AcDbObjectId ObjId;
+                AcDbEntity *pEnt = NULL;
+        
+
+                //采集点坐标，并定义一个对象，对其初始化
+                //gather the points
+
+                AcGePoint3d * pts = new AcGePoint3d [number];
+                for(int i = 0; i< number;i++)
+                {
+                        acedSSName(sel,i,ent);
+                        acdbGetObjectId(ObjId,ent);
+                        acdbOpenObject(pEnt,ObjId,AcDb::kForRead);
+                        pts[i]=((AcDbPoint*)pEnt)->position();
+                        pEnt->close();
+                }
+                acutPrintf(_T("\nYou selected %d Points."),number);
+
+                AcGePoint3d pts3[3];
+                double rad;
+                AcGePoint3d cen;
+                MinDesc(pts,number,cen,rad,pts3);
+        CreatCircle(cen,rad);
+                delete []pts;
+
+                QueryPerformanceCounter((LARGE_INTEGER*)&end);
+                acutPrintf(_T("\n%g Seconds\n"), (double)(end - start) / (double) freq);
+        }
+} ;
+//-----------------------------------------------------------------------------
+IMPLEMENT_ARX_ENTRYPOINT(CMinDescApp)
+
+ACED_ARXCOMMAND_ENTRY_AUTO(CMinDescApp, MinDesc, _MinC, MinC, ACRX_CMD_TRANSPARENT, NULL)

@@ -1,0 +1,27 @@
+public Boolean timer_WaitPeriod = false;
+StartTimer();
+Autodesk.Navisworks.Api.Application.Idle += GenerateNewPoints;
+
+public void StartTimer()
+{
+   public Timer timer_NewPoints = new Timer();
+   timer_NewPoints.Interval = 150;
+   timer_NewPoints.Enabled = true;
+   timer_NewPoints.Start();
+   timer_NewPoints.Tick += ResetTimer;
+}
+
+public void ResetTimer(object sender, EventArgs e)
+{
+   timer_WaitPeriod = false;
+}
+
+public void GenerateNewPoints(object sender, System.EventArgs e)
+{
+   if (timer_WaitPeriod == false)
+   {
+      ..code to process the points goes here...
+   }
+
+   timer_WaitPeriod = true;
+}

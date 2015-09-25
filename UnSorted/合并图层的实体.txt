@@ -1,0 +1,260 @@
+CAD对象的层级为
+
+AcadApplication -
+
+　　AcadDocument -
+
+　　　　AcadModelSpace
+
+　　　　　　AcadEntity
+
+ 1 using System;
+2 using System.Collections.Generic;
+3 using System.ComponentModel;
+4 using System.Data;
+5 using System.Drawing;
+6 using System.Text;
+7 using System.Windows.Forms;
+8 
+9 using AutoCAD;
+10 
+11 namespace road
+12 {
+13 public class CadMerge
+14 {
+15 #region members
+16 
+17 private AcadApplication app = null;
+18 private AcadDocument docLine = null;
+19 private AcadDocument docLineAnno = null;
+20 private AcadDocument docPoint = null;
+21 private AcadDocument docPointAnno = null;
+22 
+23 private AcadModelSpace msLineAnno = null;
+24 
+25 private string dirPath = "";
+26 private string tempPath = "";
+27 private string linePath = "";
+28 private string pointPath = "";
+29 private string pointAnnoPath = "";
+30 private string lineAnnoPath = "";
+31 
+32 private ProgressBar m_bar = null;
+33 
+34 #endregion
+35 
+36 public CadMerge(string path, ProgressBar bar)
+37 {
+38 this.dirPath = path;
+39 m_bar = bar;
+40 init();
+41 }
+42 
+43 //初始化参数
+44 private void init()
+45 {
+46 dirPath = dirPath+"\\";
+47 tempPath = dirPath + "temp\\";
+48 linePath = tempPath + "line.dwg";
+49 lineAnnoPath = dirPath + MainForm.m_resultDwgName;
+50 pointPath = tempPath + "point.dwg";
+51 pointAnnoPath = tempPath + "point_anno.dwg";
+52 
+53 app = new AcadApplication();
+54 m_bar.PerformStep();
+55 //app.Application.Visible = true;
+56 docLine = app.Documents.Open(linePath, null, null);
+57 docLineAnno = app.Documents.Open(lineAnnoPath, null, null);
+58 m_bar.PerformStep();
+59 docPoint = app.Documents.Open(pointPath, null, null);
+60 docPointAnno = app.Documents.Open(pointAnnoPath, null, null);
+61 m_bar.PerformStep();
+62 }
+63 
+64 //关闭cad文档
+65 private void CloseDocuments(AcadApplication app)
+66 {
+67 AcadDocuments docs = app.Documents;
+68 foreach (AcadDocument doc in docs)
+69 {
+70 if (doc.ReadOnly)
+71 {
+72 doc.Close(false, null);
+73 }
+74 else
+75 {
+76 doc.Close(true, null);
+77 }
+78 }
+79 }
+80 
+81 //合并cad文档
+82 public void MergeCADLayers()
+83 {
+84 msLineAnno = docLineAnno.ModelSpace;
+85 AcadModelSpace msLine = docLine.ModelSpace;
+86 AcadModelSpace msPoint = docPoint.ModelSpace;
+87 AcadModelSpace msPointAnno = docPointAnno.ModelSpace;
+88 updateLineAnno();
+89 AddLineToLineAnno(msLineAnno, msLine);
+90 m_bar.PerformStep();
+91 AddPointToLineAnno(msLineAnno, msPoint);
+92 m_bar.PerformStep();
+93 AddPointAnnoToLineAnno(msLineAnno, msPointAnno);
+94 updateColor();
+95 app.Update();
+96 docLineAnno.Save();
+97 CloseDocuments(app);
+98 }
+99 
+100 //更新线标记图层
+101 private void updateLineAnno()
+102 {
+103 foreach (AcadEntity entity in msLineAnno)
+104 {
+105 if (entity is AcadText)
+106 {
+107 AcadText text = (AcadText)entity;
+108 msLineAnno.AddText(text.TextString, getPoint(text.InsertionPoint), text.Height);
+109 text.Delete();
+110 }
+111 }
+112 }
+113 
+114 //点的转换，新坐标要求
+115 private double[] getPoint(object from)
+116 {
+117 double[] point = new double[3];
+118 point[0] = ((double[])from)[0]-200000;
+119 point[1] = ((double[])from)[1]-200000;
+120 point[2] = 0;
+121 
+122 return point;
+123 }
+124 
+125 /// <summary>更新线和标记的颜色，标记的文字大小
+126 /// </summary>
+127 private void updateColor()
+128 {
+129 foreach (AcadEntity entity in msLineAnno)
+130 {
+131 if (entity is AcadText)
+132 {
+133 AcadText text = (AcadText)entity;
+134 text.color = ACAD_COLOR.acRed;
+135 text.Height = 3.5;
+136 }
+137 else if (entity is AcadLWPolyline)
+138 {
+139 AcadLWPolyline line = (AcadLWPolyline)entity;
+140 line.color = ACAD_COLOR.acBlue;
+141 }
+142 else if (entity is AcadLine)
+143 {
+144 AcadLine line = (AcadLine)entity;
+145 line.color = ACAD_COLOR.acBlue;
+146 }
+147 else if (entity is AcadPoint)
+148 {
+149 AcadPoint point = (AcadPoint)entity;
+150 point.color = ACAD_COLOR.acGreen;
+151 }
+152 else if (entity is AcadSpline)
+153 {
+154 AcadSpline line = (AcadSpline)entity;
+155 line.color = ACAD_COLOR.acBlue;
+156 }
+157 else if (entity is AcadPolyline)
+158 {
+159 AcadPolyline line = (AcadPolyline)entity;
+160 line.color = ACAD_COLOR.acBlue;
+161 }
+162 //MessageBox.Show(entity.ObjectName);
+163 }
+164 }
+165 
+166 /// <summary>将点标记添加到线标记图层
+167 /// </summary>
+168 private void AddPointAnnoToLineAnno(AcadModelSpace msLineAnno, AcadModelSpace msPointAnno)
+169 {
+170 foreach (AcadEntity entity in msPointAnno)
+171 {
+172 if (entity is AcadText)
+173 {
+174 AcadText text = (AcadText)entity;
+175 msLineAnno.AddText(text.TextString,getPoint(text.InsertionPoint),text.Height);
+176 }
+177 }
+178 }
+179 
+180 /// <summary>将线添加到线标记图层
+181 /// </summary>
+182 private void AddLineToLineAnno(AcadModelSpace msLineAnno,AcadModelSpace msLine)
+183 {
+184 foreach (AcadEntity entity in msLine)
+185 {
+186 if (entity is AcadLWPolyline)
+187 {
+188 AcadLWPolyline line = (AcadLWPolyline)entity;
+189 double[] fromPoints = (double[])line.Coordinates;
+190 int count = fromPoints.Length;
+191 double newCount = count * 1.5;
+192 int newCounti = (int)newCount;
+193 double[] points = new double[newCounti];
+194 
+195 //原entity中double数组为x,y,x,y
+196 //新Polyline要求点为x,y,z,x,y,z,此处z=0
+197 for (int i = 0; i < count; i++)
+198 {
+199 
+200 int index = i / 2;
+201 int j = index * 3;
+202 
+203 if (i % 2 == 0)
+204 {
+205 points[j] = fromPoints[i]-200000;
+206 points[j + 2] = 0;
+207 }
+208 else
+209 {
+210 points[j + 1] = fromPoints[i]-200000;
+211 }
+212 }
+213 msLineAnno.AddPolyline(points);
+214 }
+215 else if (entity is AcadLine)
+216 {
+217 AcadLine line = (AcadLine)entity;
+218 double[] startPoint = new double[3];
+219 double[] endPoint = new double[3];
+220 startPoint[0] = ((double[])line.StartPoint)[0] - 200000;
+221 startPoint[1] = ((double[])line.StartPoint)[1] - 200000;
+222 startPoint[2] = 0;
+223 endPoint[0] = ((double[])line.EndPoint)[0] - 200000;
+224 endPoint[1] = ((double[])line.EndPoint)[1] - 200000;
+225 endPoint[2] = 0;
+226 msLineAnno.AddLine(startPoint, endPoint);
+227 }
+228 }
+229 }
+230 
+231 /// <summary>将点添加到线标记图层
+232 /// </summary>
+233 private void AddPointToLineAnno(AcadModelSpace msLineAnno, AcadModelSpace msPoint)
+234 {
+235 foreach (AcadEntity entity in msPoint)
+236 {
+237 if (entity is AcadPoint)
+238 {
+239 AcadPoint point = (AcadPoint)entity;
+240 double[] fromPoint = (double[])point.Coordinates;
+241 double[] topoint = new double[3];
+242 topoint[0] = fromPoint[0]-200000;
+243 topoint[1] = fromPoint[1] - 200000;
+244 topoint[2] = 0;
+245 msLineAnno.AddPoint(topoint); ;
+246 }
+247 }
+248 }
+249 }
+250 }

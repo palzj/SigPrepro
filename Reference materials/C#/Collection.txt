@@ -1,0 +1,1 @@
+在C# .net 2.0 库中，集合类就是在System、System.Collections、System.Collections.Generic和 System.Collections.ObjectModel命名空间下的类，包括Collection, KeyedCollection, ReadOnlyCollection, List, Array,Stack, Queue和ArrayList。

@@ -1,0 +1,76 @@
+06/08/2012
+Finding the points along a Polyline using ObjectARX, same concept in .NET too
+
+by Fenton Webb
+
+Any Curve derived object inside of AutoCAD uses Parameter values to define significant parts of that Curve. These Parameter values are defined as double values, ranging from 0.0 to n.
+
+Lines define their Parameter values as 0.0 to Length. So a Line drawn from A to B would have a start parameter value of 0.0 and an end of Length ¨C the midpoint, for instance, can be obtained by using :
+
+double length = 0.0;
+
+line->getEndParam(length);
+
+line->getPointAtParam(length/2.0);
+
+Circles define their Parameter values as 0.0 to 2*PI, as does Arcs and Ellipses. So, by obtaining the start and end params you can very easily get quadrant points using the same technique.
+
+Using the Parameter methods of a Polyline you can get any point on a polyline; the Parameter values work roughly the same as a Line, except the Parameter values only define the vertexes as indexes, no length values - e.g. p1=Param 0.0, p2=Param 1.0, p3=Param 2.0, etc.
+
+There are quite a few functions which work to obtain a point from a Parameter value or visa versa (search the ARX Reference for *Param* to see them all)¡­
+
+Here¡¯s a few which I use a lot when processing Curve geometry¡­
+
+AcDbCurve::getParamAtPoint - get the parameter value at a given point, say the start point = vertex 3 and the end point = vertex 4.
+
+// open a polyline and extract the vertex data from it
+
+// start and end points for instance.....
+
+ads_real fromParam = 0.0;
+
+// get the parameter value of vertex 3 start point
+
+pPoly->getParamAtPoint (startPoint, fromParam);      
+
+ads_real toParam = 0.0;
+
+// get the parameter value of vertex 4 start point
+
+pPoly->getParamAtPoint (endPoint, toParam);      
+
+ 
+
+ AcDbCurve::getPointAtParam - get a point using a parameter value. Using the fromParam and toParam above, we can obtain the midpoint between the startPoint (param 3) and the endPoint (param 4) like this
+
+ 
+
+// get the mid point of the start and end points along the pline
+
+pPoly->getPointAtParam (fromParam + ((toParam-fromParam) / 2.0), midPoint); 
+
+AcDbCurve::getDistAtParam - get a distance from a Parameter value
+
+Now because the parameter values of a Polyline are not length related, but vertex related, then the midpoint parameter value of the entire Polyline, and then its actual midpoint could be obtained like this¡­
+
+ 
+
+double startParam=0.0, endParam=0.0, midParam=0.0, dist=0.0;
+
+// always get the startParam, because it tends to be
+
+// defined slightly differently across different curve types
+
+pPoly->getStartParam(startParam);
+
+pPoly->getEndParam(endParam);
+
+// now get the midpoint of the Polyline using params
+
+AcGePoint3d midPoint;
+
+pPoly->getDistAtParam(endParam, dist); 
+
+pPoly->getParamAtDist(dist/2.0, midParam);
+
+pPoly->getPointAtParam(midParam, midPoint);

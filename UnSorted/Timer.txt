@@ -1,0 +1,24 @@
+ C# 定时执行方法： System.Timers.Timer用法示例
+
+  System.Timers.Timer t = new System.Timers.Timer(5000); //设置时间间隔为5秒
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            t.Elapsed += new System.Timers.ElapsedEventHandler(Timer_TimesUp);
+            t.AutoReset = false; //每到指定时间Elapsed事件是触发一次（false），还是一直触发（true）
+        }
+        
+        private void btnStart_Click(object sender, EventArgs e)
+        {
+            t.Enabled = true; //是否触发Elapsed事件
+            t.Start();
+        }
+        private void Timer_TimesUp(object sender, System.Timers.ElapsedEventArgs e)
+        {
+            //到达指定时间5秒触发该事件输出 Hello World!!!!
+            System.Diagnostics.Debug.WriteLine("Hello World!!!!");
+        }
+        private void btnStop_Click(object sender, EventArgs e)
+        {
+            t.Stop();
+            System.Diagnostics.Debug.WriteLine("未到指定时间5秒提前终结！！！");
+        }
